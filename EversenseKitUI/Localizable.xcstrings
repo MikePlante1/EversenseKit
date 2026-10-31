@@ -2913,6 +2913,15 @@
         }
       }
     },
+    "Bluetooth access is not allowed. Allow Bluetooth for this app in Settings to find your transmitter." : {
+
+    },
+    "Bluetooth is not available." : {
+
+    },
+    "Bluetooth is turned off. Turn on Bluetooth to find your transmitter." : {
+
+    },
     "Calibrate Again" : {
       "comment" : "title for CalibrationFailedAlert",
       "extractionState" : "manual",
@@ -28980,6 +28989,9 @@
           }
         }
       }
+    },
+    "This device does not support Bluetooth." : {
+
     },
     "Time" : {
       "comment" : "last reading",

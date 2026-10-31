@@ -121,15 +121,21 @@ class BluetoothManager: NSObject {
 
         stopScan()
 
-        scanCompletion = completion
-        guard manager.state == .poweredOn else {
+        switch manager.state {
+        case .poweredOn:
+            scanCompletion = completion
+            startScanning(manager)
+        case .resetting,
+             .unknown:
             // CoreBluetooth silently drops scans requested before power-on
+            scanCompletion = completion
             scanWhenPoweredOn = true
-            logger.info("Bluetooth not powered on (state: \(manager.state.rawValue)), scanning once it is")
-            return
+            logger.info("Bluetooth not ready yet, scanning once powered on")
+        default:
+            logger.error("Cannot scan, Bluetooth state: \(manager.state.rawValue)")
+            scanCompletion = nil
+            completion(nil, .bluetoothUnavailable(manager.state))
         }
-
-        startScanning(manager)
     }
 
     private func startScanning(_ manager: CBCentralManager) {
@@ -192,14 +198,21 @@ extension BluetoothManager: CBCentralManagerDelegate {
             return
         }
 
-        if central.state == .poweredOn {
-            if scanWhenPoweredOn {
-                // ensureConnected would replace the waiting scan
-                scanWhenPoweredOn = false
+        if scanWhenPoweredOn, central.state != .unknown {
+            scanWhenPoweredOn = false
+
+            if central.state == .poweredOn {
+                // The waiting scan already covers the reconnect below
                 startScanning(central)
                 return
             }
 
+            let completion = scanCompletion
+            scanCompletion = nil
+            completion?(nil, .bluetoothUnavailable(central.state))
+        }
+
+        if central.state == .poweredOn {
             ensureConnected { error in
                 if let error = error {
                     self.logger.error("Failed to auto reconnect: \(error.describe)")
