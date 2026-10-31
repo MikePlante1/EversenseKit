@@ -10,6 +10,7 @@ class BluetoothManager: NSObject {
     internal var peripheralManager: PeripheralManager?
 
     private var scanCompletion: ((ScanItem?, ScanError?) -> Void)?
+    private var scanWhenPoweredOn = false
     private var connectCompletion: ((ConnectFailure?) -> Void)?
 
     override init() {
@@ -116,8 +117,18 @@ class BluetoothManager: NSObject {
         stopScan()
 
         scanCompletion = completion
-        manager.scanForPeripherals(withServices: [CBUUID.serviceUUID])
+        guard manager.state == .poweredOn else {
+            // CoreBluetooth silently drops scans requested before power-on
+            scanWhenPoweredOn = true
+            logger.info("Bluetooth not powered on (state: \(manager.state.rawValue)), scanning once it is")
+            return
+        }
 
+        startScanning(manager)
+    }
+
+    private func startScanning(_ manager: CBCentralManager) {
+        manager.scanForPeripherals(withServices: [CBUUID.serviceUUID])
         logger.info("Started scanning!")
     }
 
@@ -140,6 +151,8 @@ class BluetoothManager: NSObject {
     }
 
     internal func stopScan() {
+        scanWhenPoweredOn = false
+
         guard let manager = manager else {
             logger.error("No CBCentralManager available...")
             return
@@ -175,6 +188,13 @@ extension BluetoothManager: CBCentralManagerDelegate {
         }
 
         if central.state == .poweredOn {
+            if scanWhenPoweredOn {
+                // ensureConnected would replace the waiting scan
+                scanWhenPoweredOn = false
+                startScanning(central)
+                return
+            }
+
             ensureConnected { error in
                 if let error = error {
                     self.logger.error("Failed to auto reconnect: \(error.describe)")
