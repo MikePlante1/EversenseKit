@@ -83,7 +83,12 @@ class BluetoothManager: NSObject {
 
         logger.debug("Scanning for device...")
         scan { result, error in
-            guard error == nil, let result = result, result.peripheral.name == bleName else {
+            if let error = error {
+                completion(.preconditionFailed(reason: error.describe))
+                return
+            }
+
+            guard let result = result, result.peripheral.name == bleName else {
                 return
             }
 
